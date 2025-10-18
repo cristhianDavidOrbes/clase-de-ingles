@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   ChevronLeft,
@@ -31,10 +31,23 @@ import {
   XCircle,
   Trophy,
   Sparkle,
+  BookOpen,
+  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import confetti from "canvas-confetti"
+
+// Simple deterministic PRNG to keep server/client renders in sync
+const createDeterministicRandom = (seed: number) => {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) | 0
+    let t = Math.imul(state ^ (state >>> 15), 1 | state)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
 
 const slides = [
   {
@@ -122,6 +135,35 @@ const quizQuestions = [
   },
 ]
 
+/** === Vocabulary card data (terms used in this page) === */
+const vocabulary: { term: string; translation: string }[] = [
+  { term: "hydrated", translation: "hidratada / hidratado" },
+  { term: "skincare", translation: "cuidado de la piel" },
+  { term: "makeup", translation: "maquillaje" },
+  { term: "massage", translation: "masaje" },
+  { term: "gentle", translation: "suave / delicado" },
+  { term: "shiny", translation: "brillante" },
+  { term: "flavor", translation: "sabor" },
+  { term: "healthier", translation: "más saludable" },
+  { term: "versatile", translation: "versátil" },
+  { term: "budget-friendly", translation: "económico / accesible" },
+  { term: "cardiovascular", translation: "cardiovascular" },
+  { term: "sensitive skin", translation: "piel sensible" },
+  { term: "remove", translation: "retirar / quitar" },
+  { term: "natural", translation: "natural" },
+  { term: "hair treatment", translation: "tratamiento capilar" },
+  { term: "Presentation Mode", translation: "Modo Presentación" },
+  { term: "badge", translation: "insignia" },
+  { term: "quiz", translation: "cuestionario" },
+  { term: "second chance", translation: "segunda oportunidad" },
+  { term: "health", translation: "salud" },
+  { term: "keep", translation: "mantener" },
+  { term: "soft", translation: "suave / blando" },
+  { term: "smooth", translation: "liso / suave" },
+  { term: "stats", translation: "estadisticas" },
+  { term: "knowledge", translation: "conocimiento" },
+]
+
 export default function OliveOilLanding() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [copied, setCopied] = useState<number | null>(null)
@@ -133,6 +175,16 @@ export default function OliveOilLanding() {
   const [presentationMode, setPresentationMode] = useState(false)
   const [highContrast, setHighContrast] = useState(false)
   const [reduceMotion, setReduceMotion] = useState(false)
+
+  const particleConfig = useMemo(() => {
+    const random = createDeterministicRandom(42)
+    return Array.from({ length: 20 }, () => ({
+      left: `${random() * 100}%`,
+      top: `${random() * 100}%`,
+      duration: 3 + random() * 2,
+      delay: random() * 2,
+    }))
+  }, [])
 
   // Quiz state
   const [quizStarted, setQuizStarted] = useState(false)
@@ -151,6 +203,10 @@ export default function OliveOilLanding() {
   const [showReview, setShowReview] = useState(false)
   const [goldenFilter, setGoldenFilter] = useState(false)
   const [quizAttempts, setQuizAttempts] = useState(0)
+
+  // Vocabulary state
+  const [vocabQuery, setVocabQuery] = useState("")
+  const [vocabCopied, setVocabCopied] = useState<string | null>(null)
 
   // Fun stats
   const [usesShown] = useState(4)
@@ -172,6 +228,12 @@ export default function OliveOilLanding() {
     setCopied(id)
     setCopyCount((prev) => prev + 1)
     setTimeout(() => setCopied(null), 2000)
+  }
+
+  const copyVocabPair = async (term: string, translation: string) => {
+    await navigator.clipboard.writeText(`${term} — ${translation}`)
+    setVocabCopied(term)
+    setTimeout(() => setVocabCopied(null), 2000)
   }
 
   const scrollToSection = (id: string) => {
@@ -205,6 +267,16 @@ export default function OliveOilLanding() {
 
     return highlightedText
   }
+
+  // Filtered vocabulary
+  const filteredVocab = useMemo(() => {
+    const q = vocabQuery.trim().toLowerCase()
+    if (!q) return vocabulary
+    return vocabulary.filter(
+      ({ term, translation }) =>
+        term.toLowerCase().includes(q) || translation.toLowerCase().includes(q)
+    )
+  }, [vocabQuery])
 
   // Autoplay
   useEffect(() => {
@@ -520,35 +592,34 @@ export default function OliveOilLanding() {
             <div className="flex items-center gap-8 text-sm font-medium">
               <button
                 onClick={() => scrollToSection("home")}
-                className={`${
-                  highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"
-                } transition-colors`}
+                className={`${highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"} transition-colors`}
               >
                 Home
               </button>
               <button
                 onClick={() => scrollToSection("carousel")}
-                className={`${
-                  highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"
-                } transition-colors`}
+                className={`${highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"} transition-colors`}
               >
                 Uses
               </button>
               <button
                 onClick={() => scrollToSection("game")}
-                className={`${
-                  highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"
-                } transition-colors`}
+                className={`${highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"} transition-colors`}
               >
                 Game
               </button>
               <button
                 onClick={() => scrollToSection("fun-stats")}
-                className={`${
-                  highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"
-                } transition-colors`}
+                className={`${highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"} transition-colors`}
               >
                 Fun
+              </button>
+              {/* New navbar item */}
+              <button
+                onClick={() => scrollToSection("vocab")}
+                className={`${highContrast ? "text-white hover:text-golden" : "text-olive-dark hover:text-golden"} transition-colors`}
+              >
+                Vocab
               </button>
             </div>
           </div>
@@ -562,13 +633,13 @@ export default function OliveOilLanding() {
       >
         {/* Particles background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          {[...Array(20)].map((_, i) => (
+          {particleConfig.map((particle, i) => (
             <motion.div
               key={i}
               className="absolute w-2 h-2 bg-olive-light/20 rounded-full"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                left: particle.left,
+                top: particle.top,
               }}
               animate={
                 reduceMotion
@@ -579,9 +650,9 @@ export default function OliveOilLanding() {
                     }
               }
               transition={{
-                duration: 3 + Math.random() * 2,
+                duration: particle.duration,
                 repeat: Number.POSITIVE_INFINITY,
-                delay: Math.random() * 2,
+                delay: particle.delay,
               }}
             />
           ))}
@@ -692,9 +763,7 @@ export default function OliveOilLanding() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={reduceMotion ? {} : { opacity: 0, x: -100 }}
                   transition={{ duration: reduceMotion ? 0 : 0.4, ease: "easeInOut" }}
-                  className={`${
-                    highContrast ? "bg-gray-900 border-2 border-white" : "bg-white"
-                  } rounded-2xl shadow-xl overflow-hidden`}
+                  className={`${highContrast ? "bg-gray-900 border-2 border-white" : "bg-white"} rounded-2xl shadow-xl overflow-hidden`}
                 >
                   <div className="grid md:grid-cols-2 gap-8 p-8 md:p-12">
                     {/* Content */}
@@ -867,9 +936,7 @@ export default function OliveOilLanding() {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
                 whileHover={reduceMotion ? {} : { scale: 1.05, boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}
-                className={`${
-                  highContrast ? "bg-black border-2 border-white" : "bg-white"
-                } rounded-xl p-6 shadow-lg transition-all cursor-pointer`}
+                className={`${highContrast ? "bg-black border-2 border-white" : "bg-white"} rounded-xl p-6 shadow-lg transition-all cursor-pointer`}
               >
                 <benefit.icon className={`w-10 h-10 ${highContrast ? "text-white" : "text-olive-dark"} mb-4`} />
                 <h3 className={`text-xl font-bold ${highContrast ? "text-white" : "text-olive-dark"} mb-2`}>
@@ -878,6 +945,92 @@ export default function OliveOilLanding() {
                 <p className={`${highContrast ? "text-gray-300" : "text-olive-light"}`}>{benefit.desc}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* NEW: Vocabulary Card */}
+      <section id="vocab" className={`py-20 px-4 ${highContrast ? "bg-black" : "bg-olive-light/5"}`}>
+        <div className="container mx-auto max-w-5xl">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className={`text-4xl md:text-5xl font-bold ${highContrast ? "text-white" : "text-olive-dark"} text-center mb-6`}
+          >
+            Vocabulary (Word — Traducción)
+          </motion.h2>
+
+          <p className={`text-center mb-8 ${highContrast ? "text-gray-300" : "text-olive-light"}`}>
+            Palabras en inglés utilizadas en esta página sobre el aceite de oliva y su traducción al español.
+          </p>
+
+          <div
+            className={`${highContrast ? "bg-gray-900 border-2 border-white" : "bg-white"} rounded-2xl shadow-2xl p-6 md:p-8`}
+          >
+            {/* Search input */}
+            <div className="mb-6">
+              <div
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 ${highContrast ? "bg-black border-2 border-white" : "bg-olive-light/10 border border-olive-light/30"}`}
+              >
+                <Search className={`${highContrast ? "text-white" : "text-olive-dark"} w-5 h-5`} />
+                <input
+                  value={vocabQuery}
+                  onChange={(e) => setVocabQuery(e.target.value)}
+                  placeholder="Buscar palabra o traducción..."
+                  className={`w-full bg-transparent outline-none ${highContrast ? "text-white placeholder:text-gray-400" : "text-olive-dark placeholder:text-olive-light"}`}
+                />
+              </div>
+            </div>
+
+            {/* Table-like list */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 font-semibold mb-2 px-2">
+              <div className={`md:col-span-5 ${highContrast ? "text-white" : "text-olive-dark"}`}>Word (Inglés)</div>
+              <div className={`md:col-span-6 ${highContrast ? "text-white" : "text-olive-dark"}`}>Traducción (Español)</div>
+              <div className="md:col-span-1 text-right"></div>
+            </div>
+
+            <div className="divide-y divide-olive-light/20">
+              {filteredVocab.map(({ term, translation }) => (
+                <div
+                  key={term}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center py-3 px-2"
+                >
+                  <div className={`md:col-span-5 ${highContrast ? "text-white" : "text-olive-dark"}`}>{term}</div>
+                  <div className={`md:col-span-6 ${highContrast ? "text-gray-300" : "text-olive-light"}`}>
+                    {translation}
+                  </div>
+                  <div className="md:col-span-1 flex md:justify-end">
+                    <Button
+                      onClick={() => copyVocabPair(term, translation)}
+                      variant="outline"
+                      className={`h-9 ${highContrast ? "border-white text-white hover:bg-white hover:text-black" : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"}`}
+                    >
+                      {vocabCopied === term ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1" /> Copiado
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1" /> Copiar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {filteredVocab.length === 0 && (
+                <div className={`text-center py-8 ${highContrast ? "text-gray-300" : "text-olive-light"}`}>
+                  No se encontraron resultados para “{vocabQuery}”.
+                </div>
+              )}
+            </div>
+
+            {/* Helper note */}
+            <div className={`mt-4 text-sm ${highContrast ? "text-gray-300" : "text-olive-light"}`}>
+              Tip: Puedes copiar cualquier par haciendo clic en <span className="inline-flex items-center gap-1"><Copy className="w-4 h-4" /> Copiar</span>.
+            </div>
           </div>
         </div>
       </section>
@@ -905,9 +1058,7 @@ export default function OliveOilLanding() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className={`${
-                  highContrast ? "bg-gray-900 border-2 border-white" : "bg-white"
-                } rounded-2xl p-8 shadow-xl text-center`}
+                className={`${highContrast ? "bg-gray-900 border-2 border-white" : "bg-white"} rounded-2xl p-8 shadow-xl text-center`}
               >
                 <stat.icon className={`w-12 h-12 ${highContrast ? "text-white" : "text-olive-dark"} mx-auto mb-4`} />
                 <motion.div
@@ -941,9 +1092,7 @@ export default function OliveOilLanding() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className={`${
-                highContrast ? "bg-black border-2 border-white" : "bg-white"
-              } rounded-2xl shadow-2xl p-8 md:p-12 text-center`}
+              className={`${highContrast ? "bg-black border-2 border-white" : "bg-white"} rounded-2xl shadow-2xl p-8 md:p-12 text-center`}
             >
               <Trophy className={`w-20 h-20 ${highContrast ? "text-white" : "text-golden"} mx-auto mb-6`} />
               <h3 className={`text-3xl font-bold ${highContrast ? "text-white" : "text-olive-dark"} mb-4`}>
@@ -956,11 +1105,7 @@ export default function OliveOilLanding() {
               <Button
                 onClick={startQuiz}
                 size="lg"
-                className={`${
-                  highContrast
-                    ? "bg-white text-black hover:bg-gray-200"
-                    : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
-                } px-12 py-6 text-xl rounded-full transition-all hover:scale-105 hover:shadow-lg`}
+                className={`${highContrast ? "bg-white text-black hover:bg-gray-200" : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"} px-12 py-6 text-xl rounded-full transition-all hover:scale-105 hover:shadow-lg`}
               >
                 <Play className="w-6 h-6 mr-2" />
                 Start Quiz
@@ -997,9 +1142,7 @@ export default function OliveOilLanding() {
                     ))}
                   </div>
                 </div>
-                <div
-                  className={`h-2 ${highContrast ? "bg-gray-700" : "bg-olive-light/20"} rounded-full overflow-hidden`}
-                >
+                <div className={`h-2 ${highContrast ? "bg-gray-700" : "bg-olive-light/20"} rounded-full overflow-hidden`}>
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${((currentQuestion + 1) / quizQuestions.length) * 100}%` }}
@@ -1010,9 +1153,7 @@ export default function OliveOilLanding() {
 
               {/* Timer */}
               <div className="flex items-center justify-center gap-2 mb-8">
-                <Clock
-                  className={`w-5 h-5 ${timeLeft <= 5 ? "text-red-500" : highContrast ? "text-white" : "text-olive-dark"}`}
-                />
+                <Clock className={`w-5 h-5 ${timeLeft <= 5 ? "text-red-500" : highContrast ? "text-white" : "text-olive-dark"}`} />
                 <span
                   className={`text-2xl font-bold ${
                     timeLeft <= 5 ? "text-red-500" : highContrast ? "text-white" : "text-olive-dark"
@@ -1044,9 +1185,7 @@ export default function OliveOilLanding() {
                             : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
                       }`}
                     >
-                      {showFeedback &&
-                        selectedAnswer === "true" &&
-                        (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
+                      {showFeedback && selectedAnswer === "true" && (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
                       True
                     </Button>
                     <Button
@@ -1062,9 +1201,7 @@ export default function OliveOilLanding() {
                             : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
                       }`}
                     >
-                      {showFeedback &&
-                        selectedAnswer === "false" &&
-                        (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
+                      {showFeedback && selectedAnswer === "false" && (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
                       False
                     </Button>
                   </>
@@ -1084,9 +1221,7 @@ export default function OliveOilLanding() {
                             : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
                       }`}
                     >
-                      {showFeedback &&
-                        selectedAnswer === option &&
-                        (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
+                      {showFeedback && selectedAnswer === option && (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
                       {option}
                     </Button>
                   ))
@@ -1101,18 +1236,10 @@ export default function OliveOilLanding() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     className={`mt-6 p-4 rounded-xl ${
-                      isCorrect
-                        ? highContrast
-                          ? "bg-green-900 border-2 border-white"
-                          : "bg-green-50"
-                        : highContrast
-                          ? "bg-red-900 border-2 border-white"
-                          : "bg-red-50"
+                      isCorrect ? (highContrast ? "bg-green-900 border-2 border-white" : "bg-green-50") : highContrast ? "bg-red-900 border-2 border-white" : "bg-red-50"
                     }`}
                   >
-                    <p
-                      className={`font-medium ${isCorrect ? (highContrast ? "text-white" : "text-green-700") : highContrast ? "text-white" : "text-red-700"}`}
-                    >
+                    <p className={`font-medium ${isCorrect ? (highContrast ? "text-white" : "text-green-700") : highContrast ? "text-white" : "text-red-700"}`}>
                       {quizQuestions[currentQuestion].explanation}
                     </p>
                   </motion.div>
@@ -1154,9 +1281,7 @@ export default function OliveOilLanding() {
 
               {/* Timer */}
               <div className="flex items-center justify-center gap-2 mb-8">
-                <Clock
-                  className={`w-5 h-5 ${timeLeft <= 5 ? "text-red-500" : highContrast ? "text-white" : "text-olive-dark"}`}
-                />
+                <Clock className={`w-5 h-5 ${timeLeft <= 5 ? "text-red-500" : highContrast ? "text-white" : "text-olive-dark"}`} />
                 <span
                   className={`text-2xl font-bold ${
                     timeLeft <= 5 ? "text-red-500" : highContrast ? "text-white" : "text-olive-dark"
@@ -1188,9 +1313,7 @@ export default function OliveOilLanding() {
                             : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
                       }`}
                     >
-                      {showFeedback &&
-                        selectedAnswer === "true" &&
-                        (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
+                      {showFeedback && selectedAnswer === "true" && (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
                       True
                     </Button>
                     <Button
@@ -1206,9 +1329,7 @@ export default function OliveOilLanding() {
                             : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
                       }`}
                     >
-                      {showFeedback &&
-                        selectedAnswer === "false" &&
-                        (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
+                      {showFeedback && selectedAnswer === "false" && (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
                       False
                     </Button>
                   </>
@@ -1228,9 +1349,7 @@ export default function OliveOilLanding() {
                             : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
                       }`}
                     >
-                      {showFeedback &&
-                        selectedAnswer === option &&
-                        (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
+                      {showFeedback && selectedAnswer === option && (isCorrect ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <XCircle className="w-5 h-5 mr-2" />)}
                       {option}
                     </Button>
                   ))
@@ -1245,18 +1364,10 @@ export default function OliveOilLanding() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     className={`mt-6 p-4 rounded-xl ${
-                      isCorrect
-                        ? highContrast
-                          ? "bg-green-900 border-2 border-white"
-                          : "bg-green-50"
-                        : highContrast
-                          ? "bg-red-900 border-2 border-white"
-                          : "bg-red-50"
+                      isCorrect ? (highContrast ? "bg-green-900 border-2 border-white" : "bg-green-50") : highContrast ? "bg-red-900 border-2 border-white" : "bg-red-50"
                     }`}
                   >
-                    <p
-                      className={`font-medium ${isCorrect ? (highContrast ? "text-white" : "text-green-700") : highContrast ? "text-white" : "text-red-700"}`}
-                    >
+                    <p className={`font-medium ${isCorrect ? (highContrast ? "text-white" : "text-green-700") : highContrast ? "text-white" : "text-red-700"}`}>
                       {quizQuestions[secondChanceQuestion].explanation}
                     </p>
                   </motion.div>
@@ -1270,9 +1381,7 @@ export default function OliveOilLanding() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className={`${
-                highContrast ? "bg-black border-2 border-white" : "bg-white"
-              } rounded-2xl shadow-2xl p-8 md:p-12 text-center relative overflow-hidden`}
+              className={`${highContrast ? "bg-black border-2 border-white" : "bg-white"} rounded-2xl shadow-2xl p-8 md:p-12 text-center relative overflow-hidden`}
             >
               {quizWon ? (
                 <>
@@ -1301,11 +1410,7 @@ export default function OliveOilLanding() {
                     <Button
                       onClick={downloadBadge}
                       size="lg"
-                      className={`${
-                        highContrast
-                          ? "bg-white text-black hover:bg-gray-200"
-                          : "bg-golden hover:bg-golden/90 text-warm-white"
-                      } px-8 py-6 text-lg rounded-full`}
+                      className={`${highContrast ? "bg-white text-black hover:bg-gray-200" : "bg-golden hover:bg-golden/90 text-warm-white"} px-8 py-6 text-lg rounded-full`}
                     >
                       <Trophy className="w-5 h-5 mr-2" />
                       Download Badge
@@ -1314,11 +1419,7 @@ export default function OliveOilLanding() {
                       onClick={startQuiz}
                       size="lg"
                       variant="outline"
-                      className={`${
-                        highContrast
-                          ? "border-white text-white hover:bg-white hover:text-black"
-                          : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"
-                      } px-8 py-6 text-lg rounded-full`}
+                      className={`${highContrast ? "border-white text-white hover:bg-white hover:text-black" : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"} px-8 py-6 text-lg rounded-full`}
                     >
                       <RotateCcw className="w-5 h-5 mr-2" />
                       Play Again
@@ -1327,11 +1428,7 @@ export default function OliveOilLanding() {
                       onClick={() => setShowReview(true)}
                       size="lg"
                       variant="outline"
-                      className={`${
-                        highContrast
-                          ? "border-white text-white hover:bg-white hover:text-black"
-                          : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"
-                      } px-8 py-6 text-lg rounded-full`}
+                      className={`${highContrast ? "border-white text-white hover:bg-white hover:text-black" : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"} px-8 py-6 text-lg rounded-full`}
                     >
                       <Eye className="w-5 h-5 mr-2" />
                       Review Answers
@@ -1368,11 +1465,7 @@ export default function OliveOilLanding() {
                       <Button
                         onClick={startQuiz}
                         size="lg"
-                        className={`${
-                          highContrast
-                            ? "bg-white text-black hover:bg-gray-200"
-                            : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
-                        } px-8 py-6 text-lg rounded-full`}
+                        className={`${highContrast ? "bg-white text-black hover:bg-gray-200" : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"} px-8 py-6 text-lg rounded-full`}
                       >
                         <RotateCcw className="w-5 h-5 mr-2" />
                         Try Again
@@ -1381,11 +1474,7 @@ export default function OliveOilLanding() {
                         onClick={() => setShowReview(true)}
                         size="lg"
                         variant="outline"
-                        className={`${
-                          highContrast
-                            ? "border-white text-white hover:bg-white hover:text-black"
-                            : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"
-                        } px-8 py-6 text-lg rounded-full`}
+                        className={`${highContrast ? "border-white text-white hover:bg-white hover:text-black" : "border-olive-dark text-olive-dark hover:bg-olive-dark hover:text-warm-white"} px-8 py-6 text-lg rounded-full`}
                       >
                         <Eye className="w-5 h-5 mr-2" />
                         Review Answers
@@ -1423,34 +1512,20 @@ export default function OliveOilLanding() {
                   <div
                     key={index}
                     className={`p-4 rounded-xl ${
-                      answer.correct
-                        ? highContrast
-                          ? "bg-green-900 border-2 border-white"
-                          : "bg-green-50"
-                        : highContrast
-                          ? "bg-red-900 border-2 border-white"
-                          : "bg-red-50"
+                      answer.correct ? (highContrast ? "bg-green-900 border-2 border-white" : "bg-green-50") : highContrast ? "bg-red-900 border-2 border-white" : "bg-red-50"
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       {answer.correct ? (
-                        <CheckCircle2
-                          className={`w-6 h-6 ${highContrast ? "text-white" : "text-green-500"} flex-shrink-0 mt-1`}
-                        />
+                        <CheckCircle2 className={`w-6 h-6 ${highContrast ? "text-white" : "text-green-500"} flex-shrink-0 mt-1`} />
                       ) : (
-                        <XCircle
-                          className={`w-6 h-6 ${highContrast ? "text-white" : "text-red-500"} flex-shrink-0 mt-1`}
-                        />
+                        <XCircle className={`w-6 h-6 ${highContrast ? "text-white" : "text-red-500"} flex-shrink-0 mt-1`} />
                       )}
                       <div className="flex-1">
-                        <p
-                          className={`font-medium ${answer.correct ? (highContrast ? "text-white" : "text-green-700") : highContrast ? "text-white" : "text-red-700"} mb-2`}
-                        >
+                        <p className={`font-medium ${answer.correct ? (highContrast ? "text-white" : "text-green-700") : highContrast ? "text-white" : "text-red-700"} mb-2`}>
                           {answer.question}
                         </p>
-                        <p
-                          className={`text-sm ${highContrast ? "text-gray-300" : answer.correct ? "text-green-600" : "text-red-600"}`}
-                        >
+                        <p className={`text-sm ${highContrast ? "text-gray-300" : answer.correct ? "text-green-600" : "text-red-600"}`}>
                           Your answer: {answer.userAnswer}
                         </p>
                         {!answer.correct && (
@@ -1468,11 +1543,7 @@ export default function OliveOilLanding() {
                 <Button
                   onClick={startQuiz}
                   size="lg"
-                  className={`${
-                    highContrast
-                      ? "bg-white text-black hover:bg-gray-200"
-                      : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
-                  } px-8 py-6 text-lg rounded-full`}
+                  className={`${highContrast ? "bg-white text-black hover:bg-gray-200" : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"} px-8 py-6 text-lg rounded-full`}
                 >
                   <RotateCcw className="w-5 h-5 mr-2" />
                   Try Again
@@ -1502,11 +1573,7 @@ export default function OliveOilLanding() {
             <Button
               onClick={() => setPresentationMode(!presentationMode)}
               size="lg"
-              className={`${
-                highContrast
-                  ? "bg-white text-black hover:bg-gray-200"
-                  : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"
-              } px-12 py-6 text-xl rounded-full transition-all hover:scale-105 hover:shadow-lg`}
+              className={`${highContrast ? "bg-white text-black hover:bg-gray-200" : "bg-olive-dark hover:bg-olive-dark/90 text-warm-white"} px-12 py-6 text-xl rounded-full transition-all hover:scale-105 hover:shadow-lg`}
             >
               <Presentation className="w-6 h-6 mr-2" />
               {presentationMode ? "Exit" : "Enter"} Presentation Mode
@@ -1516,9 +1583,7 @@ export default function OliveOilLanding() {
       </section>
 
       {/* Footer */}
-      <footer
-        className={`py-8 px-4 ${highContrast ? "bg-black border-t-2 border-white" : "bg-olive-dark text-warm-white"}`}
-      >
+      <footer className={`py-8 px-4 ${highContrast ? "bg-black border-t-2 border-white" : "bg-olive-dark text-warm-white"}`}>
         <div className="container mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
             <p className={`text-sm ${highContrast ? "text-white" : ""}`}>
